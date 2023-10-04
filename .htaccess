@@ -1,0 +1,5 @@
+RewriteEngine On
+
+# Rediriger toutes les requêtes vers la racine du domaine
+RewriteCond %{REQUEST_URI} !^/index\.php$
+RewriteRule .* index.php [L]
