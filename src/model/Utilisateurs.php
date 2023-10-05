@@ -185,8 +185,7 @@ class Utilisateur{
                         $req = DB_INSTANCE->prepare('SELECT * FROM `user` WHERE EMAIL_USER =:email');
                         $req->bindParam(':email', $email);
                         if ($req->execute()) {
-                                $req->setFetchMode(PDO::FETCH_ASSOC);
-                                $data_user=$req->fetch();
+                                $data_user=$req->fetch(PDO::FETCH_ASSOC);
                                 if ($data_user) {
                                         $data_user["profil"] = $this->getProfilPrivilegeUser($data_user['id_user']);
                                         return $data_user;
@@ -207,8 +206,7 @@ class Utilisateur{
                         $req->bindParam(':email', $email);
                         $req->bindParam(':id', $id);
                         if ($req->execute()) {
-                                $req->setFetchMode(PDO::FETCH_ASSOC);
-                                return $req->fetch();
+                                return $req->fetch(PDO::FETCH_ASSOC);
                         }
                 }
                 return [];
@@ -278,7 +276,8 @@ class Utilisateur{
         *Retrourn un array de Users
         */
         public function isUserAlow(array $userTypeAlow  ){
-                global $Session;
+                require_once "Session.php";
+                $Session    = new Session();
                 $TOKEN      = controlParams(       $_POST['TOKEN'   ] , "TOKEN"   , "string"  , [32   , 32     ], true);
                 $datauser   = $Session->findUserByToken($TOKEN);
                 if ($datauser) {

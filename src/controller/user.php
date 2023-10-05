@@ -8,9 +8,7 @@
  */
 
 require_once "src/model/Utilisateurs.php";
-require_once "src/model/Session.php";
 $Users      = new Utilisateur();
-$Session    = new Session();
 /**
  *Appel les fonctions adequoites selon le traitement demandé par le Users
  */
@@ -103,7 +101,7 @@ function updateUserState(){
   global $Users;
   $ID_USER    = controlParams(intval($_POST['ID_USER'    ]), "ID_USER"    , "integer" , [1000 , 100000 ], true);
   $STATE_USER = controlParams(      ($_POST['STATE_USER' ]), "STATE_USER" , "string"  , [3    , 50     ], true);
-  isUserAlow(array("SUPER ADMIN"));
+  $Users->isUserAlow(array("SUPER ADMIN"));
   if ($userInfos=$Users->rechercher_id($ID_USER)) {
         if ($Users->modifier(compact('ID_USER','STATE_USER'))) {
           response(array(
