@@ -28,9 +28,9 @@ class Utilisateur{
                                         :CREATED_AT
                                 )");
                 $param = array(
-                        'NAME_USER'    => $data['NAME_USER'],
-                        'SURNAME_USER' => $data['SURNAME_USER'],
-                        'EMAIL_USER'   => $data['EMAIL_USER'],
+                        'NAME_USER'    => trim($data['NAME_USER']),
+                        'SURNAME_USER' => trim($data['SURNAME_USER']),
+                        'EMAIL_USER'   => trim($data['EMAIL_USER']),
                         'PWD_USER'     => password_hash(trim($data['PWD_USER']), PASSWORD_DEFAULT), // password_hash est une fonction php pour crypter une chaine de caractère en l'occurence notre mpd
                         'CREATED_AT'   => custum_calendar("maintenant"),
                 );
@@ -76,7 +76,7 @@ class Utilisateur{
                                                         ");
                         $param = array(
                                 'ID_USER'    => $data['ID_USER'],
-                                'EMAIL_USER' => $data['EMAIL_USER']
+                                'EMAIL_USER' => trim($data['EMAIL_USER'])
                         );
                 }
                 if ($traitement === "UPDATEUSERINFOS"){ // !modification SANS  changement de mot de passe ni de numero
@@ -88,8 +88,8 @@ class Utilisateur{
                                                 ");
                         $param = array(
                                 'ID_USER'      => $data['ID_USER'],
-                                'SURNAME_USER' => $data['SURNAME_USER'],
-                                'NAME_USER'    => $data['NAME_USER'],
+                                'SURNAME_USER' => trim($data['SURNAME_USER']),
+                                'NAME_USER'    => trim($data['NAME_USER']),
                         );
                 }
                 if ($traitement === "UPDATEUSERPIC"){ // !modification de la photo de profil
@@ -102,6 +102,16 @@ class Utilisateur{
                                 'photo_user'    => $data['photo_profil_user'],
                         );
                 }
+                if ($traitement === "UPDATEUSERSTATE"){ // !modification su status de l'utilisateur
+                        $req = DB_INSTANCE->prepare("UPDATE  `user` 
+                                                                        SET  STATE_USER=:STATE_USER 
+                                                                        WHERE (ID_USER=:ID_USER)
+                                                                ");
+                        $param = array(
+                                'ID_USER'      => $data['ID_USER'],
+                                'STATE_USER'   => trim($data['STATE_USER']),
+                        );
+                }
                 if ($req->execute($param)) {return true;}
                 return false;
         }
@@ -110,20 +120,23 @@ class Utilisateur{
                 *La liste des users ou recherche dans la table user
                 *@param string $ordre
          */
-        public function lister(string $ordre) :ARRAY{
+        public function lister(string $ordre, string $STATE_USER) :ARRAY{
                 // ! $_POST['search']['value'] provient de datatable
                 if (isset($_POST['search']['value']) && !empty($_POST['search']['value'])) {
                         $searchval = "%" . trim(strtolower($_POST['search']['value'])) . "%";
                 } else {
                         $searchval = "%";
                 }
-                $req = DB_INSTANCE->prepare("SELECT * FROM `user` u WHERE 
+                $req = DB_INSTANCE->prepare("SELECT * FROM `user` WHERE 
                                                                 (
-                                                                        LOWER(NAME_USER) LIKE :searchval OR 
-                                                                        LOWER(SURNAME_USER) LIKE :searchval OR 
-                                                                        LOWER(EMAIL_USER)  LIKE :searchval 
+                                                                        (
+                                                                                LOWER(NAME_USER   ) LIKE :searchval OR
+                                                                                LOWER(SURNAME_USER) LIKE :searchval OR
+                                                                                LOWER(EMAIL_USER  ) LIKE :searchval
+                                                                        )   AND (STATE_USER<>'DELETED' AND STATE_USER LIKE :STATE_USER)
                                                                 ) {$ordre}");
                 $req->bindParam(':searchval', $searchval, PDO::PARAM_STR);
+                $req->bindParam(':STATE_USER', $STATE_USER, PDO::PARAM_STR);
                 if ($req->execute()) {
                         $users= $req->fetchAll(PDO::FETCH_ASSOC);
                         $nbr  = count($users);
@@ -140,59 +153,28 @@ class Utilisateur{
         /** 
                 *La liste des user ou recherche dans la table user
          */
-        public function totalList() : MIXED{
+        public function totalList(string $STATE_USER) : MIXED{
                 if (!empty($_POST['search']['value'])) {
                         $searchval = "%" . $_POST['search']['value'] . "%";
                 } else {
                         $searchval = "%";
                 }
-                $req = DB_INSTANCE->prepare("SELECT COUNT(*) AS nbr_user FROM `user` u
-                                                                JOIN `avoir` a ON a.ID_USER = u.ID_USER 
-                                                                JOIN `profil` p ON p.ID_PROFIL =a.ID_PROFIL
+                $req = DB_INSTANCE->prepare("SELECT COUNT(*) AS nbr_user FROM `user` 
                                                                 WHERE 
                                                                 (
-                                                                        LOWER(NAME_USER) LIKE :searchval OR 
-                                                                        LOWER(SURNAME_USER) LIKE :searchval OR 
-                                                                        LOWER(EMAIL_USER)  LIKE :searchval 
+                                                                        (
+                                                                                LOWER(NAME_USER   ) LIKE :searchval OR
+                                                                                LOWER(SURNAME_USER) LIKE :searchval OR
+                                                                                LOWER(EMAIL_USER  ) LIKE :searchval 
+                                                                        )   AND (STATE_USER<>'DELETED' AND STATE_USER LIKE :STATE_USER )
                                                                 )
                                                         ");
                 $req->bindParam(':searchval', $searchval, PDO::PARAM_STR);
+                $req->bindParam(':STATE_USER', $STATE_USER, PDO::PARAM_STR);
                 if ($req->execute()) {
                         return $req->fetch(PDO::FETCH_ASSOC);
                 }
                 return [];
-        }
-
-        /**
-                *Modification de l'etat du compte user
-                *@param {int} $id id_utilisateur  
-                *@param {string} $etat nouvel etat_user
-         */
-        public function update_etat_compte(int $id, string $etat): BOOL{
-                if ($id > 0) {
-                        $req   = DB_INSTANCE->prepare("UPDATE  `user` SET nom_villex=:etat_user WHERE (id_utilisateur  =:id_utilisateur  )");
-                        $param = array('id_utilisateur  '  => $id,'etat_user' => $etat);
-                        if ($req->execute($param)) {return true;}
-                }
-                return false;
-        }
-
-        /**
-                *Réinitialisation du mot de passe user
-                *@param {int} $id id_utilisateur  
-                *@param {string} $mdp nouveau mot de passe
-         */
-        public function init_pwd_utilisateur(int $id, string $password): BOOL{
-                if ($id > 0) {
-                        $req   = DB_INSTANCE->prepare("UPDATE  `user`
-                                                        SET
-                                                        pwd_utilisateur=:pwd_utilisateur
-                                                        WHERE (id_utilisateur  =:id_utilisateur  )
-                                                        ");
-                        $param = array('id_utilisateur  '  => $id,'pwd_utilisateur' => password_hash(trim($password), PASSWORD_DEFAULT));                                                      
-                        if ($req->execute($param)) {return true;}
-                }
-                return false;
         }
 
         /**recherche d'un user par mail
@@ -267,12 +249,47 @@ class Utilisateur{
                 }
                 return false;
         }
+        /**
+                *UpdateSTate d'un user par id_utilisateur
+                *@param {int} $id id_utilisateur  
+         */
+        public function updateState(int $id_utilisateur, string $state  ){
+                $req = DB_INSTANCE->prepare("UPDATE  `user` SET  STATE_USER=:STATE_USER WHERE (ID_USER=:ID_USER)");
+                $param = array(
+                        'ID_USER'      => $id_utilisateur,
+                        'STATE_USER'   => trim($state),
+                );
+                $req->execute($param);
+                return true;
+        }
 
         /**
                 *suppression (SOFT DELETE) d'un user par id_utilisateur
                 *@param {int} $id id_utilisateur  
          */
         public function supprimer(int $id_utilisateur  ){
-                return $this->update_etat_compte((int) $id_utilisateur  , "supprimer");
+                $this->updateState($id_utilisateur,"DELETED");
+                return true;
+        }
+
+
+        /**
+         *Verifie que le Users est bien logué et à le droit de mener cette action
+        *Retrourn un array de Users
+        */
+        public function isUserAlow(array $userTypeAlow  ){
+                global $Session;
+                $TOKEN      = controlParams(       $_POST['TOKEN'   ] , "TOKEN"   , "string"  , [32   , 32     ], true);
+                $datauser   = $Session->findUserByToken($TOKEN);
+                if ($datauser) {
+                        if (in_array($datauser['use_profil'],$userTypeAlow)) {
+                        return $datauser;
+                        }else{
+                        reject("Désolé, Ce profil n'est pas autorisé à mener cette action");
+                        }
+                }else{
+                        reject("Il faut être connecté pour mener cette action, cependant votre session a expiré ou est introuvable.");
+                }
+                return $datauser;
         }
 }

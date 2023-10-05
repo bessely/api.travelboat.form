@@ -28,16 +28,33 @@ function connexion(){
         global $Users;
         $EMAIL_USER = controlParams( $_POST['EMAIL_USER' ] , "EMAIL_USER" , "mail"   , [6 , 250 ], true);
         $PWD_USER   = controlParams( $_POST['PWD_USER'   ] , "PWD_USER"   , "string" , [6 , 50  ], true);
-        $user_info = $Users->rechercher_mail($EMAIL_USER);
+        $PROFIL     = $_POST['PROFIL'   ];
+        $user_info  = $Users->rechercher_mail($EMAIL_USER);
         if ($user_info) {
                 if (!$user_info['profil']) {
-                        reject("Désolé ".$user_info['name_user'].", Aucun profil n'est rattaché a votre compte. Veuillez vous rapprochez d'un administrateur.");
+                        reject("Désolé ".$user_info['name_user'].", Aucun profil n'est rattaché a votre compte. Veuillez vous rapprochez d'un administrateur. Connexion Interdite.");
                 }
                 if (password_verify($PWD_USER, $user_info['pwd_user'])){
-                        if ($user_info['state_user']==="ACTIF") {
-                                creatSession( $user_info );
+                        if ($user_info['state_user']==="ACTIF" || $user_info['state_user']==="LOCK") {
+                                if (count($user_info['profil'])>1 && $PROFIL==="" ) {
+                                        response(array(
+                                                'message' => 'Selectionner un profil pour continuer. ',
+                                                'profile' => $user_info['profil']
+                                        ));
+                                }else{
+                                        if ($PROFIL!=="") {
+                                                $PROFIL     = controlParams( $_POST['PROFIL'   ] , "PROFIL"   , "string" , [3 , 50  ], true);
+                                                $list_profil= array_column($user_info['profil'],"name_profil");
+                                                if (!in_array($PROFIL,$list_profil)) {
+                                                        reject("Désolé, Vous ne pouvez pas continuer avec un profil sur lequel vous n'êtes pas abilité.");
+                                                }
+                                        }else{
+                                                $PROFIL=$user_info['profil'][0]['name_profil'];
+                                        }
+                                }
+                                creatSession( $user_info, $PROFIL );
                         }else{
-                                reject("Votre compte est désactivé. Veuillez vous referez à un administrateur.");
+                                reject("Votre compte est désactivé. Veuillez vous référez à un administrateur.");
                         }
                 }
         }
@@ -56,10 +73,10 @@ function deconnexion(){
         *@param array $userdata : les données de l'utilisateur
         *@return session et ouvre une session 
  */
-function creatSession(array $userdata ): void{
+function creatSession(array $userdata, string $PROFIL ): void{
         global $session;
         //tentative d'ecriture de la session
-        $token=$session->write($userdata);
+        $token=$session->write($userdata,$PROFIL);
         if (!$token){
                 reject('la session n\'a pas pu être démarrée : erreur interne.');
         }
@@ -69,7 +86,8 @@ function creatSession(array $userdata ): void{
         response(array(
                 'message' => 'Bienvenue ' . $userdata['name_user'],
                 'token'   => $token,
-                'user'    => $userdata
+                'user'    => $userdata,
+                'profil'  => $PROFIL
         ));
 }
 
@@ -103,17 +121,18 @@ function closeSession(string $token ){
  */
 function console(){
         global $session;
-        $DATE1         = controlParams(       $_POST['DATE1'         ]  , "Date de Début" , "date"    , [10 , 10       ], true);
-        $DATE2         = controlParams(       $_POST['DATE2'         ]  , "Date de Fin"   , "date"    , [10 , 10       ], true);
-        $SESSION_STATE = controlParams(       $_POST['SESSION_STATE' ]  , "SESSION_STATE" , "string"  , [1 , 10        ], false);
-        $start         = controlParams(intval($_POST['START'         ]) , "START"         , "integer" , [0  , 10000000 ], true);
-        $length        = controlParams(intval($_POST['LENGTH'       ])  , "LENGTH"        , "integer" , [1  , 100      ], true);
+        $DATE1         = controlParams(       $_POST['DATE1'         ]  , "Date de Début" , "date"    , [10 , 10       ], true );
+        $DATE2         = controlParams(       $_POST['DATE2'         ]  , "Date de Fin"   , "date"    , [10 , 10       ], true );
+        $SESSION_STATE = controlParams(       $_POST['SESSION_STATE' ]  , "SESSION_STATE" , "string"  , [1  , 10       ], true);
+        $USE_PROFIL    = controlParams(       $_POST['USE_PROFIL'    ]  , "USE_PROFIL"    , "string"  , [1  , 10       ], true);
+        $start         = controlParams(intval($_POST['START'         ]) , "START"         , "integer" , [0  , 10000000 ], true );
+        $length        = controlParams(intval($_POST['LENGTH'        ]) , "LENGTH"        , "integer" , [1  , 100      ], true );
         $ordre  = " ORDER BY LAST_DATE_CONNECT DESC LIMIT $length " . ($start == 0 ? "" : "OFFSET " . $start);
         if (strtotime($DATE1) > strtotime($DATE2)){
                 reject("La date de Début ne peut pas être supérieure à la date de Fin ");
         }
-        $data   = $session->list(compact('DATE1','DATE2','ordre','SESSION_STATE'));
-        $dataT  = $session->listTotal(compact('DATE1','DATE2','ordre','SESSION_STATE'));
+        $data   = $session->list(compact('DATE1','DATE2','ordre','SESSION_STATE','USE_PROFIL'));
+        $dataT  = $session->listTotal(compact('DATE1','DATE2','ordre','SESSION_STATE','USE_PROFIL'));
         response(array(
                 'message'         => count($data)." session(s) chargée(s)",
                 'data'            => $data,

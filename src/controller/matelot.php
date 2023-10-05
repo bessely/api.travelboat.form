@@ -14,8 +14,8 @@
  */
 match (strtoupper(extractUri()['service'])) {
     "NEW"        => newMatelot(),
-    "UPDATE"     => GetOneMatelot(),
-    "LIST"       => listMatelot(),
+    // "UPDATE"     => GetOneMatelot(),
+    // "LIST"       => listMatelot(),
     // "GETONE"     => GetOneMatelot(),
     // "PUTFILE"    => GetOneMatelot(),
     // "GETONEFILE" => GetOneMatelot(),
@@ -31,5 +31,10 @@ function newMatelot(){
     $NAME_MATELOT    = controlParams(       $_POST['NAME_MATELOT'   ] , "NAME_MATELOT"   ,"string" ,[1,255  ],true);
     $SURNAME_MATELOT = controlParams(       $_POST['SURNAME_MATELOT'] , "SURNAME_MATELOT","string" ,[1,255  ],true);
     $EMAIL_MATELOT   = controlParams(       $_POST['EMAIL_MATELOT'  ] , "EMAIL_MATELOT"  ,"mail"   ,[1,255  ],true);
+    $PHONE_MATELOT   = controlParams(       $_POST['PHONE_MATELOT'  ] , "PHONE_MATELOT"  ,"string" ,[8,20   ],true);
+    $PHONE_MATELOT   = controlParams(       $_POST['PHONE_MATELOT'  ] , "PHONE_MATELOT"  ,"string" ,[8,20   ],true);
+    $PHONE_MATELOT   = controlParams(       $_POST['PHONE_MATELOT'  ] , "PHONE_MATELOT"  ,"string" ,[8,20   ],true);
+    $PHONE_MATELOT   = controlParams(       $_POST['PHONE_MATELOT'  ] , "PHONE_MATELOT"  ,"string" ,[8,20   ],true);
+    $PHONE_MATELOT   = controlParams(       $_POST['PHONE_MATELOT'  ] , "PHONE_MATELOT"  ,"string" ,[8,20   ],true);
     $PHONE_MATELOT   = controlParams(       $_POST['PHONE_MATELOT'  ] , "PHONE_MATELOT"  ,"string" ,[8,20   ],true);
 }

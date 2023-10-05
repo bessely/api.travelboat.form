@@ -8,7 +8,9 @@
  */
 
 require_once "src/model/Utilisateurs.php";
+require_once "src/model/Session.php";
 $Users      = new Utilisateur();
+$Session    = new Session();
 /**
  *Appel les fonctions adequoites selon le traitement demandé par le Users
  */
@@ -17,6 +19,7 @@ match (strtoupper(extractUri()['service'])) {
   "UPDATEUSERINFOS" => updateUserInfos(),
   "UPDATEUSERPSWD"  => updateUserPswd(),
   "INITUSERPSWD"    => initUserPswd(),
+  "UPDATEUSERSTATE" => updateUserState(),
   "UPDATEUSEREMAIL" => updateUserEmail(),
   "LIST"            => listUtilisateur(),
   "GETONE"          => getOneUtilisateur(),
@@ -81,7 +84,8 @@ function updateUserPswd(){
 
 function initUserPswd(){
   global $Users;
-  $ID_USER      = controlParams(intval($_POST['ID_USER'      ]), "ID_USER"      , "integer" , [1000, 100000 ], true);
+  $ID_USER = controlParams(intval($_POST['ID_USER' ]), "ID_USER" , "integer" , [1000 , 100000 ], true);
+  $Users->isUserAlow(array("SUPER ADMIN"));
   if ($userInfos=$Users->rechercher_id($ID_USER)) {
         $NEW_PWD_USER=random_code(6);
         if ($Users->modifier(compact('ID_USER','NEW_PWD_USER'))) {
@@ -91,6 +95,22 @@ function initUserPswd(){
           ));
         }
         reject("Désolé, mais une erreur inconnue est survenue pendant la modification du mot de passe. Veuillez réessayez !");
+  }
+  reject("Désolé, mais il semblerait que cet utilisateur n'existe plus.");
+}
+
+function updateUserState(){
+  global $Users;
+  $ID_USER    = controlParams(intval($_POST['ID_USER'    ]), "ID_USER"    , "integer" , [1000 , 100000 ], true);
+  $STATE_USER = controlParams(      ($_POST['STATE_USER' ]), "STATE_USER" , "string"  , [3    , 50     ], true);
+  isUserAlow(array("SUPER ADMIN"));
+  if ($userInfos=$Users->rechercher_id($ID_USER)) {
+        if ($Users->modifier(compact('ID_USER','STATE_USER'))) {
+          response(array(
+            'message'   => "L'état de l'utilisateur est passé à ".$STATE_USER,
+          ));
+        }
+        reject("Désolé, mais une erreur inconnue est survenue pendant la modification du l'état de l'utilisateur. Veuillez réessayez !");
   }
   reject("Désolé, mais il semblerait que cet utilisateur n'existe plus.");
 }
@@ -124,61 +144,15 @@ function getOneUtilisateur(){
 
 function listUtilisateur(){
   global $Users;
-  $start    = controlParams(intval($_POST['START']),"START", "integer",[0,10000000],true);
-  $length   = controlParams(intval($_POST['LENGTH']),"LENGTH", "integer",[0,1000],true);
-  $infos_client     = $Users->lister(" ORDER BY NAME_USER ASC LIMIT $length " . ($start == 0 ? "" : "OFFSET " . $start) . " ");
-  $infos_client_all = $Users->totalList();
+  $start      = controlParams(intval($_POST['START'     ]),"START"     , "integer",[0,10000000],true);
+  $length     = controlParams(intval($_POST['LENGTH'    ]),"LENGTH"    , "integer",[0,1000    ],true);
+  $STATE_USER = controlParams(      ($_POST['STATE_USER']),"STATE_USER", "string" ,[0,1000    ],true);
+  $infos_client     = $Users->lister(" ORDER BY NAME_USER ASC LIMIT $length " . ($start == 0 ? "" : "OFFSET " . $start) . " ",$STATE_USER);
+  $infos_client_all = $Users->totalList($STATE_USER);
   response(array(
     'message'          => count($infos_client) . ' utilisateur(s) trouvé(s)',
     'data'             => $infos_client,
     'recordsTotal'     => count($infos_client),
     'recordsFiltered'  => $infos_client_all["nbr_user"],
   ));
-}
-
-/**
- *Verifie que le Users est bien logué et à le droit de mener cette action
- *Retrourn un array de Users
- */
-function isUserAlow(){
-  global $session, $traitement;
-  $token      = controlParams(intval($_POST['ID_MATELOT']), "token","string",[32,32],true);
-
-  $datauser = $session->findUserByToken($token); // ! chargement d'un admin par token
-  if (!$datauser) {
-    http_response_code(400);
-    $reponse = array(
-      'reponse' => 'error',
-      'message' => "Désolé, vous n'êtes pas autorisé.",
-    );
-    print json_encode($reponse);
-    exit();
-  }
-
-  if ($traitement === "LOAD ALL" || $traitement === "CHANGE STATE" || $traitement === "PHONE UPDATE" || $traitement === "MAIL UPDATE" || $traitement === "SUPPRESSION") {  // uniquement pour les admins
-    if ($datauser && $datauser['user_type'] !== 'administrateur') {
-      http_response_code(400);
-      $reponse = array(
-        'reponse' => 'error',
-        'message' => "Désolé, vous n'êtes pas autorisé.",
-      );
-      print json_encode($reponse);
-      exit();
-    }
-  } else { // admin & Users
-    if (($traitement === "LOAD ONE" ||  $traitement === "NAME UPDATE" || $traitement === "SAVE PROFIL IMG") && ($datauser && $datauser['user_type'] === 'administrateur')) {  //
-      return $datauser;
-    } else {
-      if (($datauser && $datauser['user_type'] !== 'Users')) {
-        http_response_code(400);
-        $reponse = array(
-          'reponse' => 'error',
-          'message' => "Désolé, vous n'êtes pas autorisé.",
-        );
-        print json_encode($reponse);
-        exit();
-      }
-    }
-  }
-  return $datauser;
 }
